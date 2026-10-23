@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Análisis del Impacto Agrícola, Vial y Residencial</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              sage: '#5B7065',       // Cultivos (Verde Oliva/Salvia Mate)
+              terracotta: '#B85B52', // Vías (Terracota Opaco)
+              slate: '#4A6572',      // Viviendas (Azul Pizarra Mate)
+              charcoal: '#2C3E50',   // Encabezados / Texto principal
+              bg: '#F4F6F7',         // Fondo gris neutro mate
+              card: '#FFFFFF',       // Tarjetas
+              border: '#D0D7DE'      // Bordes suaves
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #F4F6F7;
+      color: #2C3E50;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+  <div class="max-w-7xl mx-auto space-y-6">
+    
+    <!-- Encabezado Principal -->
+    <header class="bg-brand-card p-6 rounded-lg border border-brand-border shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-brand-charcoal">Análisis de Impacto: Cultivos, Vías y Viviendas</h1>
+        <p class="text-sm text-gray-600 mt-1">Evaluación de pérdidas agrícolas (Ha), destrucción de red vial (m) y viviendas colapsadas por provincia.</p>
+      </div>
+      
+      <!-- Selector de Provincia -->
+      <div class="flex items-center gap-2">
+        <label for="provinceFilter" class="text-sm font-semibold text-brand-charcoal whitespace-nowrap">Filtrar Provincia:</label>
+        <select id="provinceFilter" onchange="applyFilters()" class="bg-brand-bg border border-brand-border text-brand-charcoal text-sm rounded-md p-2 focus:outline-none focus:ring-1 focus:ring-brand-slate">
+          <option value="ALL">Todas las Provincias</option>
+        </select>
+      </div>
+    </header>
+
+    <!-- Tarjetas de Resumen (KPIs) -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- KPI Cultivos -->
+      <div class="bg-brand-card p-5 rounded-lg border-l-4 border-brand-sage border-y border-r border-brand-border shadow-sm">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Daños en Cultivos</span>
+        <div id="kpiCultivos" class="text-3xl font-extrabold text-brand-sage mt-2">0 Ha</div>
+        <p class="text-xs text-gray-500 mt-1">Superficie agrícola afectada</p>
+      </div>
+
+      <!-- KPI Vías -->
+      <div class="bg-brand-card p-5 rounded-lg border-l-4 border-brand-terracotta border-y border-r border-brand-border shadow-sm">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Daños en Vías</span>
+        <div id="kpiVias" class="text-3xl font-extrabold text-brand-terracotta mt-2">0 m</div>
+        <p class="text-xs text-gray-500 mt-1">Infraestructura vial colapsada</p>
+      </div>
+
+      <!-- KPI Viviendas -->
+      <div class="bg-brand-card p-5 rounded-lg border-l-4 border-brand-slate border-y border-r border-brand-border shadow-sm">
+        <span class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Viviendas Destruidas</span>
+        <div id="kpiViviendas" class="text-3xl font-extrabold text-brand-slate mt-2">0</div>
+        <p class="text-xs text-gray-500 mt-1">Unidades habitacionales perdidas</p>
+      </div>
+
+    </section>
+
+    <!-- Sección de Gráficos -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      
+      <!-- Gráfico Comparativo Cultivos vs Vías -->
+      <div class="bg-brand-card p-6 rounded-lg border border-brand-border shadow-sm">
+        <div class="mb-4">
+          <h2 class="text-lg font-bold text-brand-charcoal">Comparativa: Cultivos (Ha) vs Vías (m)</h2>
+          <p class="text-xs text-gray-500">Muestra la asimetría del impacto entre la Sierra (Agrícola) y la Costa (Vial)</p>
+        </div>
+        <div class="h-80 relative">
+          <canvas id="chartComparison"></canvas>
+        </div>
+      </div>
+
+      <!-- Gráfico Ranking de Viviendas -->
+      <div class="bg-brand-card p-6 rounded-lg border border-brand-border shadow-sm">
+        <div class="mb-4">
+          <h2 class="text-lg font-bold text-brand-charcoal">Ranking de Viviendas Destruidas</h2>
+          <p class="text-xs text-gray-500">Provincias ordenadas por mayor cantidad de inmuebles colapsados</p>
+        </div>
+        <div class="h-80 relative">
+          <canvas id="chartViviendas"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Tabla Detallada de Datos -->
+    <section class="bg-brand-card rounded-lg border border-brand-border shadow-sm overflow-hidden">
+      <div class="p-5 border-b border-brand-border flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-brand-charcoal">Desglose Detallado por Provincia</h2>
+          <p class="text-xs text-gray-500">Haz clic en los encabezados para ordenar los datos</p>
+        </div>
+        <input type="text" id="searchInput" onkeyup="applyFilters()" placeholder="Buscar provincia..." class="bg-brand-bg border border-brand-border text-brand-charcoal text-sm rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-brand-slate w-full md:w-64">
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-gray-100 text-brand-charcoal border-b border-brand-border text-xs uppercase tracking-wider">
+            <tr>
+              <th onclick="sortTable(0)" class="p-3 font-semibold cursor-pointer hover:bg-gray-200">Provincia &#x21D5;</th>
+              <th onclick="sortTable(1)" class="p-3 font-semibold text-right cursor-pointer hover:bg-gray-200">Daños Cultivos (Ha) &#x21D5;</th>
+              <th onclick="sortTable(2)" class="p-3 font-semibold text-right cursor-pointer hover:bg-gray-200">Daños Vías (m) &#x21D5;</th>
+              <th onclick="sortTable(3)" class="p-3 font-semibold text-right cursor-pointer hover:bg-gray-200">Viviendas Destruidas &#x21D5;</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-brand-border">
+            <!-- Filas dinámicas -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // Datos provistos
+    const rawData = [
+      { provincia: "PICHINCHA", vias: 1720, cultivos: 4373552, viviendas: 442 },
+      { provincia: "NAPO", vias: 40, cultivos: 801050, viviendas: 261 },
+      { provincia: "AZUAY", vias: 112070, cultivos: 342855, viviendas: 809 },
+      { provincia: "GALAPAGOS", vias: 0, cultivos: 300215, viviendas: 2 },
+      { provincia: "CHIMBORAZO", vias: 480, cultivos: 242334, viviendas: 159 },
+      { provincia: "MANABI", vias: 1512402, cultivos: 181260, viviendas: 2014 },
+      { provincia: "GUAYAS", vias: 845802, cultivos: 155865, viviendas: 1687 },
+      { provincia: "LOS RIOS", vias: 623540, cultivos: 114500, viviendas: 722 },
+      { provincia: "ESMERALDAS", vias: 50000, cultivos: 110660, viviendas: 1991 },
+      { provincia: "TUNGURAHUA", vias: 35000, cultivos: 82507, viviendas: 91 }
+    ];
+
+    let filteredData = [...rawData];
+    let chartComparisonInstance = null;
+    let chartViviendasInstance = null;
+    let currentSort = { col: -1, asc: true };
+
+    // Colores mate opacos
+    const COLOR_SAGE = '#5B7065';
+    const COLOR_TERRACOTTA = '#B85B52';
+    const COLOR_SLATE = '#4A6572';
+
+    function init() {
+      populateDropdown();
+      renderDashboard();
+    }
+
+    function populateDropdown() {
+      const select = document.getElementById('provinceFilter');
+      rawData.forEach(item => {
+        const option = document.createElement('option');
+        option.value = item.provincia;
+        option.textContent = item.provincia;
+        select.appendChild(option);
+      });
+    }
+
+    function applyFilters() {
+      const selectedProvince = document.getElementById('provinceFilter').value;
+      const searchVal = document.getElementById('searchInput').value.toLowerCase().trim();
+
+      filteredData = rawData.filter(item => {
+        const matchesProv = (selectedProvince === 'ALL' || item.provincia === selectedProvince);
+        const matchesSearch = item.provincia.toLowerCase().includes(searchVal);
+        return matchesProv && matchesSearch;
+      });
+
+      renderDashboard();
+    }
+
+    function renderDashboard() {
+      updateKPIs();
+      updateCharts();
+      updateTable();
+    }
+
+    function updateKPIs() {
+      const totalCultivos = filteredData.reduce((acc, curr) => acc + curr.cultivos, 0);
+      const totalVias = filteredData.reduce((acc, curr) => acc + curr.vias, 0);
+      const totalViviendas = filteredData.reduce((acc, curr) => acc + curr.viviendas, 0);
+
+      document.getElementById('kpiCultivos').textContent = totalCultivos.toLocaleString('es-EC') + " Ha";
+      document.getElementById('kpiVias').textContent = totalVias.toLocaleString('es-EC') + " m";
+      document.getElementById('kpiViviendas').textContent = totalViviendas.toLocaleString('es-EC');
+    }
+
+    function updateCharts() {
+      const labels = filteredData.map(d => d.provincia);
+      const dataCultivos = filteredData.map(d => d.cultivos);
+      const dataVias = filteredData.map(d => d.vias);
+
+      // Destruir gráficos anteriores si existen
+      if (chartComparisonInstance) chartComparisonInstance.destroy();
+      if (chartViviendasInstance) chartViviendasInstance.destroy();
+
+      // 1. Gráfico Dual (Cultivos vs Vías)
+      const ctxComp = document.getElementById('chartComparison').getContext('2d');
+      chartComparisonInstance = new Chart(ctxComp, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Cultivos (Ha)',
+              data: dataCultivos,
+              backgroundColor: COLOR_SAGE,
+              yAxisID: 'y1',
+              borderRadius: 4
+            },
+            {
+              label: 'Vías (m)',
+              data: dataVias,
+              backgroundColor: COLOR_TERRACOTTA,
+              yAxisID: 'y2',
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom' }
+          },
+          scales: {
+            x: {
+              grid: { display: false }
+            },
+            y1: {
+              type: 'linear',
+              position: 'left',
+              title: { display: true, text: 'Cultivos (Ha)' },
+              ticks: { callback: value => value.toLocaleString('es-EC') },
+              grid: { color: '#E2E8F0' }
+            },
+            y2: {
+              type: 'linear',
+              position: 'right',
+              title: { display: true, text: 'Vías (m)' },
+              ticks: { callback: value => value.toLocaleString('es-EC') },
+              grid: { drawOnChartArea: false }
+            }
+          }
+        }
+      });
+
+      // 2. Gráfico Ranking de Viviendas (Horizontal Bar)
+      const sortedByViv = [...filteredData].sort((a, b) => b.viviendas - a.viviendas);
+      const ctxViv = document.getElementById('chartViviendas').getContext('2d');
+      
+      chartViviendasInstance = new Chart(ctxViv, {
+        type: 'bar',
+        data: {
+          labels: sortedByViv.map(d => d.provincia),
+          datasets: [{
+            label: 'Viviendas Destruidas',
+            data: sortedByViv.map(d => d.viviendas),
+            backgroundColor: COLOR_SLATE,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            x: {
+              grid: { color: '#E2E8F0' },
+              ticks: { callback: value => value.toLocaleString('es-EC') }
+            },
+            y: {
+              grid: { display: false }
+            }
+          }
+        }
+      });
+    }
+
+    function updateTable() {
+      const tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+
+      if (filteredData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-gray-500">No se encontraron resultados</td></tr>`;
+        return;
+      }
+
+      filteredData.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-gray-50 transition-colors";
+        tr.innerHTML = `
+          <td class="p-3 font-semibold text-brand-charcoal">${item.provincia}</td>
+          <td class="p-3 text-right font-mono text-brand-sage">${item.cultivos.toLocaleString('es-EC')}</td>
+          <td class="p-3 text-right font-mono text-brand-terracotta">${item.vias.toLocaleString('es-EC')}</td>
+          <td class="p-3 text-right font-mono text-brand-slate font-bold">${item.viviendas.toLocaleString('es-EC')}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function sortTable(columnIndex) {
+      const keys = ['provincia', 'cultivos', 'vias', 'viviendas'];
+      const key = keys[columnIndex];
+
+      if (currentSort.col === columnIndex) {
+        currentSort.asc = !currentSort.asc;
+      } else {
+        currentSort.col = columnIndex;
+        currentSort.asc = true;
+      }
+
+      filteredData.sort((a, b) => {
+        let valA = a[key];
+        let valB = b[key];
+
+        if (typeof valA === 'string') {
+          return currentSort.asc ? valA.localeCompare(valB) : valB.localeCompare(valA);
+        } else {
+          return currentSort.asc ? valA - valB : valB - valA;
+        }
+      });
+
+      renderDashboard();
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
